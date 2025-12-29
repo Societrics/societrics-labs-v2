@@ -68,24 +68,8 @@ export default function Home() {
               Launch Analyzer <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>
-          
-          {/* Card 4: Assessment Tool */}
-          <Link href="/assessment" className="group block p-8 bg-slate-800 rounded-2xl border border-slate-700 hover:border-blue-500 hover:bg-slate-750 transition-all md:col-span-2">
-            <div className="w-12 h-12 bg-indigo-900/50 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <Activity className="text-indigo-400" size={24} />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">
-              Field Assessment Tool
-            </h2>
-            <p className="text-slate-400 mb-6">
-              Conduct live Societrics surveys. Calculates WSI, TPC, and CSI indices in real-time for community diagnosis.
-            </p>
-            <div className="flex items-center text-sm font-bold text-blue-500">
-              Start Assessment <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
 
-        </div>
+          </div>
 
         <footer className="mt-16 text-slate-600 text-sm">
           © {new Date().getFullYear()} Societrics Labs. Powered by the Mindbrood Initiative.
