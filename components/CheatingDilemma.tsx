@@ -281,9 +281,10 @@ const runSimulation = (params: SimulationParams): SimulationResult => {
     const socCultureFactor = 0.5 + 0.5 * state.tpcCulture;
     const soc = socBase * socTrustFactor * socCultureFactor;
 
-    // Theta (threshold ratio) - NOW INCLUDES TPC MODIFIER
-    const adjustedWSI = wsi * tpcModifier;
-    const theta = adjustedWSI / soc;
+    // Theta (threshold ratio) - Θ = WSI / SOC (Rate of Click Internalization / Standard of Change)
+    // TPC Modifier affects WSI separately for CSI calculation, but Θ is pure WSI/SOC
+    const theta = wsi / soc;
+    const adjustedWSI = wsi * tpcModifier; // Used for CSI, not for Θ
 
     // === DUAL PULL PRINCIPLE (W_acc) ===
     const T = state.tpcTime;
@@ -673,10 +674,10 @@ const MethodologyPanel: React.FC<MethodologyPanelProps> = ({ isOpen }) => {
           <div className="p-4 bg-slate-50 rounded-lg">
             <h3 className="font-bold text-slate-800 mb-2">1. Threshold Ratio (Θ)</h3>
             <code className="block bg-slate-200 px-3 py-2 rounded font-mono text-sm">
-              Θ(t) = (WSI × TPC_mod) / SOC
+              Θ(t) = WSI(t) / SOC(t)
             </code>
             <p className="mt-2 text-slate-600">
-              Ratio of system strain to adaptive capacity. Crisis occurs at Θ ≥ 1.0
+              Ratio of system strain to adaptive capacity. Equilibrium at Θ ≈ 1.0. Crisis when Θ {'>'} 1.
             </p>
           </div>
           
@@ -1159,7 +1160,7 @@ const CheatingDilemma: React.FC = () => {
                 <YAxis domain={[0, 1.5]} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                  formatter={(value: number) => fmt(value, 3)}
+                  formatter={(value: any) => fmt(value, 3)}
                 />
                 <Legend />
                 <ReferenceLine y={1.0} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'Crisis Θ=1', fill: '#ef4444' }} />
@@ -1175,7 +1176,7 @@ const CheatingDilemma: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="time" />
                 <YAxis domain={[-30, 15]} />
-                <Tooltip formatter={(value: number) => fmt(value, 1)} />
+                <Tooltip formatter={(value: any) => fmt(value, 1)} />
                 <Legend />
                 <ReferenceLine y={0} stroke="#94a3b8" />
                 {enforcementStart && <ReferenceLine x={enforcementStart} stroke="#8b5cf6" strokeDasharray="3 3" />}
@@ -1188,7 +1189,7 @@ const CheatingDilemma: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="time" />
                 <YAxis domain={[0, 1.3]} />
-                <Tooltip formatter={(value: number) => fmt(value, 3)} />
+                <Tooltip formatter={(value: any) => fmt(value, 3)} />
                 <Legend />
                 <ReferenceLine y={1.0} stroke="#94a3b8" strokeDasharray="3 3" />
                 <Line type="monotone" dataKey="tpcModifier" stroke="#8b5cf6" strokeWidth={3} dot={false} name="TPC Modifier" />
