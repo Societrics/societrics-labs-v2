@@ -8,7 +8,8 @@ import {
   AlertCircle, TrendingUp, TrendingDown, AlertTriangle, Play, Pause,
   RotateCcw, Download, BookOpen, Settings, Zap, Shield, Target,
   ChevronDown, ChevronUp, Info, Lightbulb, Users, GraduationCap,
-  Activity, BarChart3, Layers, GitBranch, Clock, CheckCircle, XCircle
+  Activity, BarChart3, Layers, GitBranch, Clock, CheckCircle, XCircle,
+  Scale // <--- Added this missing one
 } from 'lucide-react';
 
 // ============================================================================
@@ -56,11 +57,10 @@ const EQUILIBRIUM_ZONES = {
 // ============================================================================
 
 // Sigmoid function for smooth transitions
-const sigmoid = (x, k = 1) => 1 / (1 + Math.exp(-k * x));
+const sigmoid = (x: number, k: number = 1): number => 1 / (1 + Math.exp(-k * x));
 
 // Clamp value between min and max
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
+const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 // Calculate TPC Modifier (0.8 - 1.2)
 const calculateTPCModifier = (tpcScore) => {
   if (tpcScore === null || tpcScore === undefined) return 1.0;
