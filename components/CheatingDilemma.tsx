@@ -9,30 +9,139 @@ import {
   RotateCcw, Download, BookOpen, Settings, Zap, Shield, Target,
   ChevronDown, ChevronUp, Info, Lightbulb, Users, GraduationCap,
   Activity, BarChart3, Layers, GitBranch, Clock, CheckCircle, XCircle,
-  Scale // <--- Added this missing one
+  Scale, LucideIcon
 } from 'lucide-react';
+
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
+
+interface SimulationParams {
+  cheatingRate: number;
+  timeSteps: number;
+  socLimit: number;
+  trustDecay: number;
+  eduDecay: number;
+  systemCostMult: number;
+  enforcementStart: number | null;
+  enforcementStrength: number;
+  initialState?: typeof INITIAL_STATE;
+}
+
+interface SimulationState {
+  wsi: number;
+  trust: number;
+  education: number;
+  wealth: number;
+  civilization: number;
+  religion: number;
+  politicalPower: number;
+  tpcTime: number;
+  tpcPersonal: number;
+  tpcCulture: number;
+}
+
+interface Zone {
+  min: number;
+  max: number;
+  color: string;
+  label: string;
+}
+
+interface DataPoint {
+  time: number;
+  wsi: number;
+  adjustedWSI: number;
+  soc: number;
+  theta: number;
+  trust: number;
+  education: number;
+  civilization: number;
+  tpcScore: number;
+  tpcModifier: number;
+  W_acc: number;
+  phi: number;
+  honestPayoff: number;
+  cheatPayoff: number;
+  systemCost: number;
+  thresholdCrossed: boolean;
+  zone: Zone;
+  equilibriumType: string;
+  cumulativeCheats: number;
+  isEnforcing: boolean;
+  moralCondition: boolean;
+  strategicCondition: boolean;
+  structuralCondition: boolean;
+}
+
+interface SimulationSummary {
+  finalTheta: number;
+  finalTrust: number;
+  finalEducation: number;
+  collapsed: boolean;
+  collapseTime: number | null;
+  totalCheats: number;
+  avgTheta: number;
+  peakTheta: number;
+  tippingPoint: number | null;
+}
+
+interface SimulationResult {
+  data: DataPoint[];
+  summary: SimulationSummary;
+}
+
+interface MetricCardProps {
+  title: string;
+  value: string;
+  subtitle?: string;
+  icon?: LucideIcon;
+  color?: 'blue' | 'green' | 'yellow' | 'orange' | 'red' | 'purple' | 'slate';
+  trend?: number;
+  info?: string;
+}
+
+interface InfoTooltipProps {
+  text: string;
+}
+
+interface ZoneIndicatorProps {
+  theta: number;
+}
+
+interface EquilibriumComparisonProps {
+  finalState: DataPoint;
+}
+
+interface DynamicPayoffMatrixProps {
+  finalState: DataPoint;
+}
+
+interface MethodologyPanelProps {
+  isOpen: boolean;
+  onToggle?: () => void;
+}
 
 // ============================================================================
 // CONSTANTS & CONFIGURATION
 // ============================================================================
 
-const WSI_WEIGHTS = {
+const WSI_WEIGHTS: Record<string, number> = {
   Wealth: 0.15,
-  'Social Trust': 0.20,      // Increased - critical for cheating dynamics
+  'Social Trust': 0.20,
   Religion: 0.10,
   Civilization: 0.15,
-  Education: 0.25,           // Increased - directly affected
+  Education: 0.25,
   'Political Power': 0.15
 };
-// Weights now sum to 1.0
 
-const TPC_WEIGHTS = {
+const TPC_WEIGHTS: Record<string, number> = {
   'Time-Sense': 0.35,
   'Personal-Sense': 0.35,
   'Cultural Anchoring': 0.30
 };
 
-const INITIAL_STATE = {
+const INITIAL_STATE: SimulationState = {
   wsi: 0.75,
   trust: 0.70,
   education: 0.80,
@@ -45,7 +154,7 @@ const INITIAL_STATE = {
   tpcCulture: 0.60
 };
 
-const EQUILIBRIUM_ZONES = {
+const EQUILIBRIUM_ZONES: Record<string, Zone> = {
   stable: { min: 0, max: 0.7, color: 'green', label: 'Stable Equilibrium' },
   fragile: { min: 0.7, max: 0.9, color: 'yellow', label: 'Fragile Zone' },
   critical: { min: 0.9, max: 1.0, color: 'orange', label: 'Critical Zone' },
@@ -61,14 +170,15 @@ const sigmoid = (x: number, k: number = 1): number => 1 / (1 + Math.exp(-k * x))
 
 // Clamp value between min and max
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
+
 // Calculate TPC Modifier (0.8 - 1.2)
-const calculateTPCModifier = (tpcScore) => {
+const calculateTPCModifier = (tpcScore: number | null | undefined): number => {
   if (tpcScore === null || tpcScore === undefined) return 1.0;
   return 0.8 + 0.4 * ((clamp(tpcScore, 1, 7) - 1) / 6);
 };
 
 // Get zone based on theta value
-const getZone = (theta) => {
+const getZone = (theta: number): Zone => {
   if (theta >= 1.0) return EQUILIBRIUM_ZONES.crisis;
   if (theta >= 0.9) return EQUILIBRIUM_ZONES.critical;
   if (theta >= 0.7) return EQUILIBRIUM_ZONES.fragile;
@@ -76,7 +186,7 @@ const getZone = (theta) => {
 };
 
 // Format number for display
-const fmt = (n, decimals = 2) => {
+const fmt = (n: number | null | undefined, decimals: number = 2): string => {
   if (n === null || n === undefined || isNaN(n)) return '—';
   return Number(n).toFixed(decimals);
 };
@@ -85,7 +195,7 @@ const fmt = (n, decimals = 2) => {
 // SIMULATION ENGINE
 // ============================================================================
 
-const runSimulation = (params) => {
+const runSimulation = (params: SimulationParams): SimulationResult => {
   const {
     cheatingRate,
     timeSteps,
@@ -98,13 +208,13 @@ const runSimulation = (params) => {
     initialState = INITIAL_STATE
   } = params;
 
-  const data = [];
+  const data: DataPoint[] = [];
   
   // Initialize state
   let state = { ...initialState };
   let cumulativeCheats = 0;
   let systemCollapsed = false;
-  let collapseTime = null;
+  let collapseTime: number | null = null;
 
   for (let t = 0; t <= timeSteps; t++) {
     // Check if enforcement kicks in
@@ -265,7 +375,7 @@ const runSimulation = (params) => {
 // COMPONENTS
 // ============================================================================
 
-const InfoTooltip = ({ text }) => (
+const InfoTooltip: React.FC<InfoTooltipProps> = ({ text }) => (
   <div className="group relative inline-block ml-1">
     <Info className="w-4 h-4 text-slate-400 cursor-help" />
     <div className="hidden group-hover:block absolute z-50 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl -left-28 top-6">
@@ -275,8 +385,8 @@ const InfoTooltip = ({ text }) => (
   </div>
 );
 
-const MetricCard = ({ title, value, subtitle, icon: Icon, color = 'blue', trend, info }) => {
-  const colorStyles = {
+const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtitle, icon: Icon, color = 'blue', trend, info }) => {
+  const colorStyles: Record<string, string> = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700',
     green: 'bg-green-50 border-green-200 text-green-700',
     yellow: 'bg-yellow-50 border-yellow-200 text-yellow-700',
@@ -311,15 +421,22 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, color = 'blue', trend,
   );
 };
 
-const ZoneIndicator = ({ theta }) => {
+const ZoneIndicator: React.FC<ZoneIndicatorProps> = ({ theta }) => {
   const zone = getZone(theta);
   const percentage = Math.min(theta * 100, 150);
+  
+  const zoneColorClasses: Record<string, string> = {
+    green: 'bg-green-100 text-green-700',
+    yellow: 'bg-yellow-100 text-yellow-700',
+    orange: 'bg-orange-100 text-orange-700',
+    red: 'bg-red-100 text-red-700'
+  };
   
   return (
     <div className="bg-white rounded-xl p-4 border border-slate-200">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold text-slate-700">System State</span>
-        <span className={`px-2 py-1 rounded-full text-xs font-bold bg-${zone.color}-100 text-${zone.color}-700`}>
+        <span className={`px-2 py-1 rounded-full text-xs font-bold ${zoneColorClasses[zone.color] || 'bg-slate-100 text-slate-700'}`}>
           {zone.label}
         </span>
       </div>
@@ -353,11 +470,11 @@ const ZoneIndicator = ({ theta }) => {
   );
 };
 
-const EquilibriumComparison = ({ finalState }) => {
+const EquilibriumComparison: React.FC<EquilibriumComparisonProps> = ({ finalState }) => {
   const nashPrediction = "CHEAT";
   const nashReason = "Immediate +5 payoff dominates";
   
-  let sgtPrediction, sgtReason, sgtColor;
+  let sgtPrediction: string, sgtReason: string, sgtColor: string;
   
   if (finalState.theta >= 1.0) {
     sgtPrediction = "HONEST (Forced)";
@@ -376,6 +493,15 @@ const EquilibriumComparison = ({ finalState }) => {
     sgtReason = "System stable enough to tolerate some cheating";
     sgtColor = "yellow";
   }
+
+  const sgtColorClasses: Record<string, { border: string; bg: string; badge: string; text: string }> = {
+    green: { border: 'border-green-400', bg: 'bg-green-50', badge: 'bg-green-600', text: 'text-green-700' },
+    blue: { border: 'border-blue-400', bg: 'bg-blue-50', badge: 'bg-blue-600', text: 'text-blue-700' },
+    yellow: { border: 'border-yellow-400', bg: 'bg-yellow-50', badge: 'bg-yellow-600', text: 'text-yellow-700' },
+    red: { border: 'border-red-400', bg: 'bg-red-50', badge: 'bg-red-600', text: 'text-red-700' }
+  };
+
+  const colorClass = sgtColorClasses[sgtColor] || sgtColorClasses.blue;
 
   return (
     <div className="grid md:grid-cols-2 gap-4">
@@ -409,15 +535,15 @@ const EquilibriumComparison = ({ finalState }) => {
       </div>
 
       {/* SGT */}
-      <div className={`border-2 border-${sgtColor}-400 rounded-xl p-5 bg-${sgtColor}-50`}>
+      <div className={`border-2 ${colorClass.border} rounded-xl p-5 ${colorClass.bg}`}>
         <div className="flex items-center gap-2 mb-3">
-          <span className={`px-3 py-1 bg-${sgtColor}-600 text-white text-xs font-bold rounded-full`}>SGT σₑ</span>
+          <span className={`px-3 py-1 ${colorClass.badge} text-white text-xs font-bold rounded-full`}>SGT σₑ</span>
           <span className="font-semibold text-slate-700">Societrics Equilibrium</span>
         </div>
         
         <div className="bg-white rounded-lg p-4 mb-3">
           <p className="text-sm text-slate-500 mb-1">Predicted Strategy:</p>
-          <p className={`text-xl font-bold text-${sgtColor}-700`}>{sgtPrediction}</p>
+          <p className={`text-xl font-bold ${colorClass.text}`}>{sgtPrediction}</p>
           <p className="text-xs text-slate-500 mt-2">{sgtReason}</p>
         </div>
         
@@ -440,7 +566,7 @@ const EquilibriumComparison = ({ finalState }) => {
   );
 };
 
-const DynamicPayoffMatrix = ({ finalState }) => {
+const DynamicPayoffMatrix: React.FC<DynamicPayoffMatrixProps> = ({ finalState }) => {
   const cells = [
     {
       row: 'Honest',
@@ -532,7 +658,7 @@ const DynamicPayoffMatrix = ({ finalState }) => {
   );
 };
 
-const MethodologyPanel = ({ isOpen, onToggle }) => {
+const MethodologyPanel: React.FC<MethodologyPanelProps> = ({ isOpen }) => {
   if (!isOpen) return null;
   
   return (
@@ -634,27 +760,27 @@ const MethodologyPanel = ({ isOpen, onToggle }) => {
 // MAIN COMPONENT
 // ============================================================================
 
-const CheatingDilemma = () => {
+const CheatingDilemma: React.FC = () => {
   // Primary parameters
-  const [cheatingRate, setCheatingRate] = useState(0.15);
-  const [timeSteps, setTimeSteps] = useState(50);
+  const [cheatingRate, setCheatingRate] = useState<number>(0.15);
+  const [timeSteps, setTimeSteps] = useState<number>(50);
   
   // Advanced parameters
-  const [socLimit, setSocLimit] = useState(0.10);
-  const [trustDecay, setTrustDecay] = useState(0.02);
-  const [eduDecay, setEduDecay] = useState(0.015);
-  const [systemCostMult, setSystemCostMult] = useState(5.0);
+  const [socLimit, setSocLimit] = useState<number>(0.10);
+  const [trustDecay, setTrustDecay] = useState<number>(0.02);
+  const [eduDecay, setEduDecay] = useState<number>(0.015);
+  const [systemCostMult, setSystemCostMult] = useState<number>(5.0);
   
   // Intervention parameters
-  const [enforcementStart, setEnforcementStart] = useState(null);
-  const [enforcementStrength, setEnforcementStrength] = useState(0.5);
+  const [enforcementStart, setEnforcementStart] = useState<number | null>(null);
+  const [enforcementStrength, setEnforcementStrength] = useState<number>(0.5);
   
   // UI state
-  const [showMethodology, setShowMethodology] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [activeChart, setActiveChart] = useState('main');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackTime, setPlaybackTime] = useState(0);
+  const [showMethodology, setShowMethodology] = useState<boolean>(false);
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+  const [activeChart, setActiveChart] = useState<string>('main');
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [playbackTime, setPlaybackTime] = useState<number>(0);
 
   // Run simulation
   const simulation = useMemo(() => runSimulation({
@@ -669,7 +795,7 @@ const CheatingDilemma = () => {
   }), [cheatingRate, timeSteps, socLimit, trustDecay, eduDecay, systemCostMult, enforcementStart, enforcementStrength]);
 
   const { data, summary } = simulation;
-  const finalState = data[data.length - 1] || {};
+  const finalState = data[data.length - 1] || {} as DataPoint;
   const currentState = data[Math.min(playbackTime, data.length - 1)] || finalState;
 
   // Playback animation
@@ -683,8 +809,8 @@ const CheatingDilemma = () => {
   }, [isPlaying, playbackTime, data.length]);
 
   // Preset scenarios
-  const loadPreset = (preset) => {
-    const presets = {
+  const loadPreset = (preset: string): void => {
+    const presets: Record<string, { cheatingRate: number; trustDecay: number; eduDecay: number; enforcement?: number }> = {
       low: { cheatingRate: 0.05, trustDecay: 0.015, eduDecay: 0.01 },
       default: { cheatingRate: 0.15, trustDecay: 0.02, eduDecay: 0.015 },
       medium: { cheatingRate: 0.25, trustDecay: 0.025, eduDecay: 0.02 },
@@ -704,7 +830,7 @@ const CheatingDilemma = () => {
   };
 
   // Export data
-  const exportData = () => {
+  const exportData = (): void => {
     const headers = ['Time', 'WSI', 'AdjustedWSI', 'SOC', 'Theta', 'Trust', 'Education', 'TPC', 'W_acc', 'Phi', 'HonestPayoff', 'CheatPayoff', 'SystemCost'];
     const rows = data.map(d => 
       [d.time, fmt(d.wsi,4), fmt(d.adjustedWSI,4), fmt(d.soc,4), fmt(d.theta,4), fmt(d.trust,4), fmt(d.education,4), fmt(d.tpcScore,4), fmt(d.W_acc,4), fmt(d.phi,4), fmt(d.honestPayoff,2), fmt(d.cheatPayoff,2), fmt(d.systemCost,2)].join(',')
@@ -767,16 +893,25 @@ const CheatingDilemma = () => {
             { key: 'medium', label: 'Elevated', color: 'yellow', rate: '25%' },
             { key: 'high', label: 'Crisis', color: 'red', rate: '40%' },
             { key: 'intervention', label: 'Intervention', color: 'purple', rate: '30% + fix' }
-          ].map(p => (
-            <button
-              key={p.key}
-              onClick={() => loadPreset(p.key)}
-              className={`p-3 rounded-xl border-2 border-${p.color}-300 bg-${p.color}-50 hover:bg-${p.color}-100 transition`}
-            >
-              <div className={`font-semibold text-${p.color}-700`}>{p.label}</div>
-              <div className="text-xs text-slate-600">{p.rate}</div>
-            </button>
-          ))}
+          ].map(p => {
+            const presetColorClasses: Record<string, string> = {
+              green: 'border-green-300 bg-green-50 hover:bg-green-100 text-green-700',
+              blue: 'border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700',
+              yellow: 'border-yellow-300 bg-yellow-50 hover:bg-yellow-100 text-yellow-700',
+              red: 'border-red-300 bg-red-50 hover:bg-red-100 text-red-700',
+              purple: 'border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700'
+            };
+            return (
+              <button
+                key={p.key}
+                onClick={() => loadPreset(p.key)}
+                className={`p-3 rounded-xl border-2 transition ${presetColorClasses[p.color]}`}
+              >
+                <div className="font-semibold">{p.label}</div>
+                <div className="text-xs text-slate-600">{p.rate}</div>
+              </button>
+            );
+          })}
         </div>
 
         {/* Controls */}
@@ -1024,7 +1159,7 @@ const CheatingDilemma = () => {
                 <YAxis domain={[0, 1.5]} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                  formatter={(value) => fmt(value, 3)}
+                  formatter={(value: number) => fmt(value, 3)}
                 />
                 <Legend />
                 <ReferenceLine y={1.0} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'Crisis Θ=1', fill: '#ef4444' }} />
@@ -1040,7 +1175,7 @@ const CheatingDilemma = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="time" />
                 <YAxis domain={[-30, 15]} />
-                <Tooltip formatter={(value) => fmt(value, 1)} />
+                <Tooltip formatter={(value: number) => fmt(value, 1)} />
                 <Legend />
                 <ReferenceLine y={0} stroke="#94a3b8" />
                 {enforcementStart && <ReferenceLine x={enforcementStart} stroke="#8b5cf6" strokeDasharray="3 3" />}
@@ -1053,7 +1188,7 @@ const CheatingDilemma = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="time" />
                 <YAxis domain={[0, 1.3]} />
-                <Tooltip formatter={(value) => fmt(value, 3)} />
+                <Tooltip formatter={(value: number) => fmt(value, 3)} />
                 <Legend />
                 <ReferenceLine y={1.0} stroke="#94a3b8" strokeDasharray="3 3" />
                 <Line type="monotone" dataKey="tpcModifier" stroke="#8b5cf6" strokeWidth={3} dot={false} name="TPC Modifier" />
@@ -1073,11 +1208,11 @@ const CheatingDilemma = () => {
           <ul className="grid md:grid-cols-2 gap-3 text-sm text-indigo-800">
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
-              <span><strong>Nash Equilibrium</strong> always predicts "Cheat" (immediate +5 dominates)</span>
+              <span><strong>Nash Equilibrium</strong> always predicts &quot;Cheat&quot; (immediate +5 dominates)</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
-              <span><strong>Societrics (σₑ)</strong> excludes "Cheat" when Θ {'>'} 1 due to system collapse</span>
+              <span><strong>Societrics (σₑ)</strong> excludes &quot;Cheat&quot; when Θ {'>'} 1 due to system collapse</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-indigo-500">•</span>
