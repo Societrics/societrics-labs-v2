@@ -38,23 +38,18 @@ const CRISIS_PRESETS = {
     region: "Latin America",
     description: "Authoritarian consolidation with economic collapse",
     color: 'yellow',
-    // WSI Fundamentals
     wealth: 0.25,
     trust: 0.30,
     religion: 0.60,
     civilization: 0.45,
     education: 0.55,
     politicalPower: 0.40,
-    // TPC Factors
-    T: 0.45,  // Time-Sense (low planning efficiency)
-    P: 0.35,  // Personal-Sense (low agency)
-    C: 0.40,  // Cultural Anchoring (fractured)
-    // Resistance/Pressure
-    R: 0.70,  // Rigidity (high)
-    S: 0.80,  // Social Pressure (high coercion)
-    // SOC
-    soc: 0.10,
-    // Actor-specific
+    T: 0.45,
+    P: 0.35,
+    C: 0.40,
+    R: 0.70,
+    S: 0.80,
+    soc: 0.45,
     regimeCoercion: 0.70,
     regimeStructural: 0.60,
     oppositionSymbolic: 0.50,
@@ -77,7 +72,7 @@ const CRISIS_PRESETS = {
     C: 0.35,
     R: 0.80,
     S: 0.90,
-    soc: 0.08,
+    soc: 0.30,
     regimeCoercion: 0.85,
     regimeStructural: 0.70,
     oppositionSymbolic: 0.60,
@@ -100,7 +95,7 @@ const CRISIS_PRESETS = {
     C: 0.45,
     R: 0.75,
     S: 0.75,
-    soc: 0.09,
+    soc: 0.42,
     regimeCoercion: 0.75,
     regimeStructural: 0.55,
     oppositionSymbolic: 0.65,
@@ -123,11 +118,34 @@ const CRISIS_PRESETS = {
     C: 0.50,
     R: 0.70,
     S: 0.85,
-    soc: 0.085,
+    soc: 0.38,
     regimeCoercion: 0.80,
     regimeStructural: 0.60,
     oppositionSymbolic: 0.70,
     populationExit: 0.35
+  },
+  japan: {
+    id: 'japan',
+    name: "Japan",
+    region: "East Asia",
+    description: "Stable democracy with strong institutions",
+    color: 'green',
+    wealth: 0.80,
+    trust: 0.75,
+    religion: 0.50,
+    civilization: 0.85,
+    education: 0.90,
+    politicalPower: 0.70,
+    T: 0.85,
+    P: 0.80,
+    C: 0.90,
+    R: 0.35,
+    S: 0.30,
+    soc: 0.85,
+    regimeCoercion: 0.15,
+    regimeStructural: 0.80,
+    oppositionSymbolic: 0.70,
+    populationExit: 0.05
   },
   custom: {
     id: 'custom',
@@ -135,22 +153,22 @@ const CRISIS_PRESETS = {
     region: "User Defined",
     description: "Build your own crisis parameters",
     color: 'slate',
-    wealth: 0.40,
-    trust: 0.45,
+    wealth: 0.50,
+    trust: 0.50,
     religion: 0.55,
-    civilization: 0.50,
+    civilization: 0.55,
     education: 0.55,
-    politicalPower: 0.45,
+    politicalPower: 0.50,
     T: 0.55,
-    P: 0.50,
-    C: 0.50,
-    R: 0.60,
-    S: 0.65,
-    soc: 0.10,
-    regimeCoercion: 0.60,
+    P: 0.55,
+    C: 0.55,
+    R: 0.50,
+    S: 0.50,
+    soc: 0.55,
+    regimeCoercion: 0.50,
     regimeStructural: 0.50,
     oppositionSymbolic: 0.50,
-    populationExit: 0.40
+    populationExit: 0.30
   }
 };
 
@@ -238,11 +256,45 @@ const INTERVENTION_PHASES = {
   }
 };
 
-const EQUILIBRIUM_ZONES = {
-  stable: { min: 0, max: 0.7, color: 'green', label: 'Stable', description: 'System can absorb shocks' },
-  fragile: { min: 0.7, max: 0.9, color: 'yellow', label: 'Fragile', description: 'Vulnerable to cascading failures' },
-  critical: { min: 0.9, max: 1.0, color: 'orange', label: 'Critical', description: 'Approaching breakdown' },
-  crisis: { min: 1.0, max: Infinity, color: 'red', label: 'Crisis', description: 'System capacity exceeded' }
+// ============================================================================
+// ELASTIC MIDDLE EQUILIBRIUM ZONES (CORRECTED)
+// ============================================================================
+// The Elastic Middle: Green is at CENTER (Θ ≈ 1), both extremes are Red
+// Too LOW (stagnation) is just as bad as too HIGH (crisis)
+
+const getElasticMiddleZone = (theta) => {
+  // Equilibrium at Θ = 1.0 (center of elastic middle)
+  const deviation = Math.abs(theta - 1.0);
+  
+  if (deviation <= 0.15) {
+    return { 
+      color: 'green', 
+      label: 'EQUILIBRIUM', 
+      description: 'Elastic Middle - System in balance',
+      mode: 'Stable'
+    };
+  } else if (deviation <= 0.30) {
+    return { 
+      color: 'yellow', 
+      label: theta < 1 ? 'UNDER-CAPACITY' : 'ELEVATED STRAIN', 
+      description: theta < 1 ? 'System underutilized - stagnation risk' : 'Approaching capacity limits',
+      mode: 'Transient'
+    };
+  } else if (deviation <= 0.50) {
+    return { 
+      color: 'orange', 
+      label: theta < 1 ? 'STAGNATION' : 'CRITICAL', 
+      description: theta < 1 ? 'System rigid - reform needed' : 'Near breaking point',
+      mode: 'Transient'
+    };
+  } else {
+    return { 
+      color: 'red', 
+      label: theta < 1 ? 'COLLAPSE (LOW)' : 'CRISIS (HIGH)', 
+      description: theta < 1 ? 'System frozen - structural failure' : 'SOC exceeded - SIP Trap active',
+      mode: 'Critical'
+    };
+  }
 };
 
 // ============================================================================
@@ -255,13 +307,6 @@ const fmt = (n, decimals = 2) => (n === null || n === undefined || isNaN(n)) ? '
 const calculateTPCModifier = (tpcScore) => {
   if (tpcScore === null || tpcScore === undefined) return 1.0;
   return 0.8 + 0.4 * clamp((tpcScore - 1) / 6, 0, 1);
-};
-
-const getZone = (theta) => {
-  if (theta >= 1.0) return EQUILIBRIUM_ZONES.crisis;
-  if (theta >= 0.9) return EQUILIBRIUM_ZONES.critical;
-  if (theta >= 0.7) return EQUILIBRIUM_ZONES.fragile;
-  return EQUILIBRIUM_ZONES.stable;
 };
 
 const calculateWSI = (state) => {
@@ -281,7 +326,13 @@ const calculateTPC = (state) => {
     TPC_WEIGHTS['Personal-Sense'] * state.P +
     TPC_WEIGHTS['Cultural Anchoring'] * state.C
   );
-  return 1 + raw * 6; // Convert to 1-7 scale
+  return 1 + raw * 6;
+};
+
+// Calculate SIP Trap Multiplier: φ(W_acc) = 2σ(αW_acc) - 1
+const calculateSIPMultiplier = (W_acc) => {
+  const alpha = 2;
+  return 2 * (1 / (1 + Math.exp(-alpha * W_acc))) - 1;
 };
 
 // ============================================================================
@@ -301,12 +352,16 @@ const runSimulationStep = (state, phase, activeShocks, shockConfigs) => {
   const adjustedWSI = wsi * tpcModifier;
   
   // Dynamic SOC (affected by trust and culture)
-  const socTrustFactor = 0.3 + 0.7 * newState.trust;
-  const socCultureFactor = 0.5 + 0.5 * newState.C;
-  const effectiveSOC = newState.soc * socTrustFactor * socCultureFactor;
+  const socBase = newState.soc;
+  const socBonus = 0.15 * newState.trust + 0.10 * newState.C;
+  const effectiveSOC = socBase + socBonus;
   
-  // Theta calculation
+  // Theta calculation: Θ = WSI / SOC
   const theta = adjustedWSI / effectiveSOC;
+  
+  // SIP Trap calculation
+  const sipMultiplier = calculateSIPMultiplier(W_acc);
+  const sipActive = theta > 1.0 || W_acc < 0;
   
   // Apply ongoing shock effects
   activeShocks.forEach(shockId => {
@@ -320,10 +375,11 @@ const runSimulationStep = (state, phase, activeShocks, shockConfigs) => {
     }
   });
 
-  // Calculate actor payoffs
-  const regimePayoff = newState.politicalPower * 10 - (theta > 1.0 ? 30 * (theta - 1) : 0);
-  const oppositionPayoff = newState.trust * 8 + newState.oppositionSymbolic * 5 - (theta > 1.0 ? 20 * (theta - 1) : 0);
-  const populationPayoff = (newState.wealth + newState.education) * 5 - newState.populationExit * 10;
+  // Calculate actor payoffs (with SIP inversion when active)
+  const payoffMultiplier = sipActive ? sipMultiplier : 1;
+  const regimePayoff = (newState.politicalPower * 10 - (theta > 1.0 ? 30 * (theta - 1) : 0)) * payoffMultiplier;
+  const oppositionPayoff = (newState.trust * 8 + newState.oppositionSymbolic * 5 - (theta > 1.0 ? 20 * (theta - 1) : 0)) * payoffMultiplier;
+  const populationPayoff = ((newState.wealth + newState.education) * 5 - newState.populationExit * 10) * payoffMultiplier;
   
   // Phase-specific dynamics
   const phaseConfig = INTERVENTION_PHASES[phase];
@@ -333,7 +389,7 @@ const runSimulationStep = (state, phase, activeShocks, shockConfigs) => {
     newState.trust = clamp(newState.trust * 0.985, 0.05, 1);
     newState.wealth = clamp(newState.wealth * 0.975, 0.05, 1);
     newState.education = clamp(newState.education * 0.990, 0.1, 1);
-    newState.soc = clamp(newState.soc * 0.985, 0.02, 0.3);
+    newState.soc = clamp(newState.soc * 0.995, 0.15, 0.80);
     newState.S = clamp(newState.S + newState.regimeCoercion * 0.005, 0, 1);
     newState.R = clamp(newState.R + 0.003, 0, 1);
     newState.populationExit = clamp(newState.populationExit + 0.01, 0, 0.90);
@@ -369,11 +425,13 @@ const runSimulationStep = (state, phase, activeShocks, shockConfigs) => {
       soc: effectiveSOC,
       theta,
       W_acc,
+      sipMultiplier,
+      sipActive,
       regimePayoff,
       oppositionPayoff,
       populationPayoff,
-      zone: getZone(theta),
-      thresholdCrossed: theta > 1.0
+      zone: getElasticMiddleZone(theta),
+      thresholdCrossed: theta > 1.0 || theta < 0.5
     }
   };
 };
@@ -428,14 +486,23 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, color = 'blue', trend,
   );
 };
 
-const ZoneIndicator = ({ theta, showLabels = true }) => {
-  const zone = getZone(theta);
-  const percentage = Math.min(theta * 100, 150);
+// ============================================================================
+// ELASTIC MIDDLE ZONE INDICATOR (CORRECTED VISUALIZATION)
+// ============================================================================
+// Green at center (Θ ≈ 1), Red on BOTH extremes
+
+const ElasticMiddleIndicator = ({ theta, showLabels = true }) => {
+  const zone = getElasticMiddleZone(theta);
+  
+  // Map theta to position: 0 = left edge, 1 = center, 2 = right edge
+  // Scale: 0.0 to 2.0 range, with 1.0 at center
+  const position = Math.min(Math.max(theta, 0), 2);
+  const percentage = (position / 2) * 100;
   
   return (
     <div className="bg-white rounded-xl p-4 border border-slate-200">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-slate-700">System State</span>
+        <span className="text-sm font-semibold text-slate-700">System State (Elastic Middle)</span>
         <span className={`px-3 py-1 rounded-full text-xs font-bold 
           ${zone.color === 'green' ? 'bg-green-100 text-green-700' : ''}
           ${zone.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' : ''}
@@ -446,36 +513,103 @@ const ZoneIndicator = ({ theta, showLabels = true }) => {
         </span>
       </div>
       
-      <div className="relative h-8 bg-slate-100 rounded-full overflow-visible mb-2">
-        <div className="absolute inset-y-0 left-0 w-[46.67%] bg-gradient-to-r from-green-400 to-green-500 rounded-l-full" />
-        <div className="absolute inset-y-0 left-[46.67%] w-[13.33%] bg-gradient-to-r from-yellow-400 to-yellow-500" />
-        <div className="absolute inset-y-0 left-[60%] w-[6.67%] bg-gradient-to-r from-orange-400 to-orange-500" />
-        <div className="absolute inset-y-0 left-[66.67%] right-0 bg-gradient-to-r from-red-400 to-red-500 rounded-r-full" />
-        
+      {/* Elastic Middle Gradient Bar */}
+      <div className="relative h-10 rounded-full overflow-visible mb-2 shadow-inner"
+        style={{
+          background: `linear-gradient(to right, 
+            #ef4444 0%, 
+            #f97316 15%, 
+            #eab308 25%, 
+            #22c55e 40%, 
+            #22c55e 60%, 
+            #eab308 75%, 
+            #f97316 85%, 
+            #ef4444 100%)`
+        }}
+      >
+        {/* Center equilibrium marker at Θ = 1.0 */}
         <div 
-          className="absolute top-0 bottom-0 w-1.5 bg-slate-900 rounded-full transition-all duration-500 shadow-lg"
-          style={{ left: `calc(${Math.min(percentage / 1.5, 100)}% - 3px)` }}
+          className="absolute top-0 bottom-0 w-0.5 bg-white/60"
+          style={{ left: '50%' }}
+        />
+        
+        {/* Current position indicator */}
+        <div 
+          className="absolute top-0 bottom-0 w-2 bg-slate-900 rounded-full transition-all duration-500 shadow-lg"
+          style={{ left: `calc(${percentage}% - 4px)` }}
         >
-          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap font-bold">
+          <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap font-bold shadow-lg">
             Θ = {fmt(theta, 3)}
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45" />
           </div>
         </div>
       </div>
       
       {showLabels && (
-        <div className="flex justify-between text-xs text-slate-500 px-1">
-          <span>0</span>
-          <span>0.7</span>
-          <span>0.9</span>
-          <span>1.0</span>
-          <span>1.5+</span>
+        <div className="flex justify-between text-xs text-slate-500 px-1 mt-1">
+          <span className="text-red-500 font-medium">← STAGNATION</span>
+          <span className="text-green-600 font-bold">EQUILIBRIUM (Θ=1)</span>
+          <span className="text-red-500 font-medium">CRISIS →</span>
         </div>
       )}
       
-      <p className="text-xs text-slate-500 mt-2 text-center">{zone.description}</p>
+      <p className="text-xs text-slate-500 mt-3 text-center">{zone.description}</p>
+      
+      {/* Mode indicator */}
+      <div className={`mt-3 text-center py-2 rounded-lg text-sm font-bold
+        ${zone.mode === 'Stable' ? 'bg-green-100 text-green-800' : ''}
+        ${zone.mode === 'Transient' ? 'bg-yellow-100 text-yellow-800' : ''}
+        ${zone.mode === 'Critical' ? 'bg-red-100 text-red-800' : ''}
+      `}>
+        {zone.mode === 'Stable' && '🟢 STABLE STATE - All σₑ conditions met'}
+        {zone.mode === 'Transient' && '🟡 TRANSIENT STATE - Reform possible'}
+        {zone.mode === 'Critical' && '🔴 CRITICAL STATE - Intervention required'}
+      </div>
     </div>
   );
 };
+
+// SIP Trap Status Component
+const SIPTrapIndicator = ({ sipActive, sipMultiplier, W_acc }) => (
+  <div className={`rounded-xl p-4 border-2 transition-all ${
+    sipActive ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'
+  }`}>
+    <div className="flex items-center gap-3 mb-2">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+        sipActive ? 'bg-red-500' : 'bg-green-500'
+      }`}>
+        <Zap className="w-5 h-5 text-white" />
+      </div>
+      <div>
+        <h3 className={`font-bold ${sipActive ? 'text-red-800' : 'text-green-800'}`}>
+          SIP Trap: {sipActive ? 'ACTIVE' : 'INACTIVE'}
+        </h3>
+        <p className="text-xs text-slate-600">Signal Interpretation Paradox</p>
+      </div>
+    </div>
+    
+    <div className="grid grid-cols-2 gap-3 mt-3">
+      <div className="bg-white/80 rounded-lg p-2 text-center">
+        <p className="text-xs text-slate-500">φ(W_acc)</p>
+        <p className={`font-mono font-bold ${sipMultiplier < 0 ? 'text-red-600' : 'text-green-600'}`}>
+          {fmt(sipMultiplier, 3)}
+        </p>
+      </div>
+      <div className="bg-white/80 rounded-lg p-2 text-center">
+        <p className="text-xs text-slate-500">W_acc</p>
+        <p className={`font-mono font-bold ${W_acc < 0 ? 'text-red-600' : W_acc > 1 ? 'text-green-600' : 'text-yellow-600'}`}>
+          {fmt(W_acc, 3)}
+        </p>
+      </div>
+    </div>
+    
+    {sipActive && (
+      <p className="text-xs text-red-700 mt-3 p-2 bg-red-100 rounded-lg">
+        ⚠️ Payoffs inverted! Constructive actions interpreted as negative.
+      </p>
+    )}
+  </div>
+);
 
 const CrisisCard = ({ crisis, isSelected, onClick }) => {
   const colorMap = {
@@ -483,6 +617,7 @@ const CrisisCard = ({ crisis, isSelected, onClick }) => {
     red: 'border-red-400 bg-red-50',
     orange: 'border-orange-400 bg-orange-50',
     purple: 'border-purple-400 bg-purple-50',
+    green: 'border-green-400 bg-green-50',
     slate: 'border-slate-400 bg-slate-50'
   };
 
@@ -493,7 +628,7 @@ const CrisisCard = ({ crisis, isSelected, onClick }) => {
       onClick={onClick}
       className={`p-4 rounded-xl border-2 text-left transition-all ${
         isSelected 
-          ? `${colorMap[crisis.color]} ring-2 ring-offset-2 ring-${crisis.color}-400` 
+          ? `${colorMap[crisis.color]} ring-2 ring-offset-2` 
           : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
       }`}
     >
@@ -507,7 +642,7 @@ const CrisisCard = ({ crisis, isSelected, onClick }) => {
       <p className="text-xs text-slate-600 mb-3">{crisis.description}</p>
       <div className="flex items-center justify-between text-xs">
         <span className="text-slate-500">Initial Θ:</span>
-        <span className={`font-bold ${initialTheta > 1 ? 'text-red-600' : initialTheta > 0.7 ? 'text-yellow-600' : 'text-green-600'}`}>
+        <span className={`font-bold ${initialTheta > 1.5 ? 'text-red-600' : initialTheta > 1 ? 'text-orange-600' : initialTheta < 0.7 ? 'text-yellow-600' : 'text-green-600'}`}>
           {fmt(initialTheta, 2)}
         </span>
       </div>
@@ -707,20 +842,22 @@ const MethodologyPanel = ({ isOpen }) => {
           <div className="p-4 bg-slate-50 rounded-lg">
             <h3 className="font-bold text-slate-800 mb-2">1. Threshold Ratio (Θ)</h3>
             <code className="block bg-slate-200 px-3 py-2 rounded font-mono text-sm">
-              Θ = (WSI × TPC_mod) / SOC
+              Θ = WSI / SOC
             </code>
             <p className="mt-2 text-slate-600">
-              System strain relative to adaptive capacity. Crisis at Θ ≥ 1.0
+              Rate of change vs system capacity. <strong>Equilibrium at Θ ≈ 1.0</strong>
             </p>
           </div>
           
-          <div className="p-4 bg-slate-50 rounded-lg">
-            <h3 className="font-bold text-slate-800 mb-2">2. Actor Payoffs</h3>
-            <div className="space-y-1 text-xs font-mono bg-slate-200 p-2 rounded">
-              <div>Regime = PP × 10 - 30(Θ-1) if Θ&gt;1</div>
-              <div>Opposition = Trust × 8 + Symbolic × 5</div>
-              <div>Population = (Wealth + Edu) × 5 - Exit × 10</div>
-            </div>
+          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+            <h3 className="font-bold text-green-800 mb-2">2. Elastic Middle Principle</h3>
+            <p className="text-green-700">
+              Green zone at center (Θ ≈ 1). <strong>Both extremes are dangerous:</strong>
+            </p>
+            <ul className="mt-2 text-sm text-green-700 list-disc ml-4">
+              <li>Θ &lt;&lt; 1 = Stagnation (system frozen)</li>
+              <li>Θ &gt;&gt; 1 = Crisis (system overwhelmed)</li>
+            </ul>
           </div>
         </div>
         
@@ -731,17 +868,18 @@ const MethodologyPanel = ({ isOpen }) => {
               W_acc = (T + P + C) - (R + S)
             </code>
             <p className="mt-2 text-blue-700">
-              Acceptance/Resistance balance determines system trajectory
+              Balance of Acceptance vs Resistance. Target: W_acc ≈ 1
             </p>
           </div>
           
-          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-            <h3 className="font-bold text-green-800 mb-2">4. SGT Intervention Pathway</h3>
-            <ol className="list-decimal ml-4 space-y-1 text-green-700">
-              <li><strong>Circuit Breaker:</strong> Stop R+S feedback</li>
-              <li><strong>Structural Floor:</strong> Rebuild SOC capacity</li>
-              <li><strong>Incentive Engine:</strong> Empower P, restore trust</li>
-            </ol>
+          <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+            <h3 className="font-bold text-red-800 mb-2">4. SIP Trap</h3>
+            <code className="block bg-red-100 px-3 py-2 rounded font-mono text-sm">
+              φ(W_acc) = 2σ(αW_acc) - 1
+            </code>
+            <p className="mt-2 text-red-700">
+              When Θ &gt; 1 or W_acc &lt; 0: <strong>All signals invert!</strong>
+            </p>
           </div>
         </div>
       </div>
@@ -780,13 +918,18 @@ const CrisisAnalyzer = () => {
     const tpcScore = calculateTPC(state);
     const tpcModifier = calculateTPCModifier(tpcScore);
     const adjustedWSI = wsi * tpcModifier;
-    const socTrustFactor = 0.3 + 0.7 * state.trust;
-    const socCultureFactor = 0.5 + 0.5 * state.C;
-    const effectiveSOC = state.soc * socTrustFactor * socCultureFactor;
+    const socBase = state.soc;
+    const socBonus = 0.15 * state.trust + 0.10 * state.C;
+    const effectiveSOC = socBase + socBonus;
     const theta = adjustedWSI / effectiveSOC;
     const W_acc = (state.T + state.P + state.C) - (state.R + state.S);
+    const sipMultiplier = calculateSIPMultiplier(W_acc);
+    const sipActive = theta > 1.0 || W_acc < 0;
     
-    return { wsi, tpcScore, tpcModifier, adjustedWSI, soc: effectiveSOC, theta, W_acc, zone: getZone(theta) };
+    return { 
+      wsi, tpcScore, tpcModifier, adjustedWSI, soc: effectiveSOC, theta, W_acc,
+      sipMultiplier, sipActive, zone: getElasticMiddleZone(theta) 
+    };
   }, [state]);
 
   // Statistics
@@ -801,6 +944,7 @@ const CrisisAnalyzer = () => {
       maxTheta: fmt(Math.max(...thetas), 3),
       minTheta: fmt(Math.min(...thetas), 3),
       timeInCrisis: history.filter(d => d.theta > 1.0).length,
+      timeInStagnation: history.filter(d => d.theta < 0.5).length,
       trustChange: fmt((trusts[trusts.length - 1] - trusts[0]) * 100, 1),
       wealthChange: fmt((wealths[wealths.length - 1] / wealths[0] - 1) * 100, 1),
       interventions: interventionLog.filter(l => l.type === 'intervention').length,
@@ -898,9 +1042,9 @@ const CrisisAnalyzer = () => {
 
   // Export
   const exportData = useCallback(() => {
-    const headers = ['Time', 'WSI', 'TPC', 'AdjWSI', 'SOC', 'Theta', 'W_acc', 'Trust', 'Wealth', 'Education', 'P', 'Phase'];
+    const headers = ['Time', 'WSI', 'TPC', 'AdjWSI', 'SOC', 'Theta', 'W_acc', 'SIP', 'Trust', 'Wealth', 'Education', 'P', 'Phase'];
     const rows = history.map(d => 
-      [d.time, fmt(d.wsi,4), fmt(d.tpcScore,4), fmt(d.adjustedWSI,4), fmt(d.soc,4), fmt(d.theta,4), fmt(d.W_acc,4), fmt(d.trust,4), fmt(d.wealth,4), fmt(d.education,4), fmt(d.P,4), d.phase].join(',')
+      [d.time, fmt(d.wsi,4), fmt(d.tpcScore,4), fmt(d.adjustedWSI,4), fmt(d.soc,4), fmt(d.theta,4), fmt(d.W_acc,4), fmt(d.sipMultiplier,4), fmt(d.trust,4), fmt(d.wealth,4), fmt(d.education,4), fmt(d.P,4), d.phase].join(',')
     );
     
     let csv = `# SGT Crisis Analysis: ${CRISIS_PRESETS[selectedCrisis].name}\n`;
@@ -937,7 +1081,7 @@ const CrisisAnalyzer = () => {
                 SGT Multi-Crisis Analyzer
               </h1>
               <p className="text-slate-600 mt-1">
-                Advanced confrontation analysis with interventions, shocks, and policy pathways
+                Elastic Middle Equilibrium • SIP Trap Detection • Policy Pathways
               </p>
             </div>
             
@@ -950,6 +1094,15 @@ const CrisisAnalyzer = () => {
               >
                 <BookOpen className="w-4 h-4" />
                 Theory
+              </button>
+              <button
+                onClick={() => setShowCustomBuilder(!showCustomBuilder)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${
+                  showCustomBuilder ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Custom Builder
               </button>
               <button
                 onClick={() => setShowStatistics(!showStatistics)}
@@ -980,7 +1133,7 @@ const CrisisAnalyzer = () => {
             <Map className="w-5 h-5" />
             Select Crisis Scenario
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             {Object.values(CRISIS_PRESETS).map(crisis => (
               <CrisisCard
                 key={crisis.id}
@@ -992,74 +1145,93 @@ const CrisisAnalyzer = () => {
           </div>
         </div>
 
-        {/* Status Dashboard */}
-        <div className="grid md:grid-cols-5 gap-4">
+        {/* Main Metrics Row */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Elastic Middle Indicator (CORRECTED) */}
+          <ElasticMiddleIndicator theta={currentMetrics.theta} />
+          
+          {/* SIP Trap Status */}
+          <SIPTrapIndicator 
+            sipActive={currentMetrics.sipActive}
+            sipMultiplier={currentMetrics.sipMultiplier}
+            W_acc={currentMetrics.W_acc}
+          />
+        </div>
+
+        {/* Key Metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <MetricCard
-            title="Threshold (Θ)"
+            title="Θ (Threshold)"
             value={fmt(currentMetrics.theta, 3)}
-            subtitle={currentMetrics.zone.label}
+            subtitle="Target ≈ 1.0"
+            icon={Target}
+            color={currentMetrics.theta > 1.2 || currentMetrics.theta < 0.8 ? 'red' : currentMetrics.theta > 1.1 || currentMetrics.theta < 0.9 ? 'yellow' : 'green'}
+            info="Reclassification Threshold: WSI / SOC. Equilibrium at Θ ≈ 1.0"
+          />
+          <MetricCard
+            title="WSI"
+            value={fmt(currentMetrics.wsi, 3)}
+            subtitle="Weighted Index"
             icon={Activity}
-            color={currentMetrics.zone.color}
-            info="System strain / adaptive capacity"
-          />
-          <MetricCard
-            title="WSI (Adjusted)"
-            value={fmt(currentMetrics.adjustedWSI, 3)}
-            subtitle={`Raw: ${fmt(currentMetrics.wsi, 3)}`}
-            icon={Scale}
             color="blue"
-            info="Weight Shift Index × TPC Modifier"
+            info="Weight Shift Index: Aggregated fundamental scores"
           />
           <MetricCard
-            title="TPC Modifier"
-            value={fmt(currentMetrics.tpcModifier, 3)}
-            subtitle={`Score: ${fmt(currentMetrics.tpcScore, 2)}`}
-            icon={TrendingUp}
-            color={currentMetrics.tpcModifier >= 1 ? 'green' : 'orange'}
-            info="Time-Personal-Culture adjustment (0.8-1.2)"
+            title="SOC"
+            value={fmt(currentMetrics.soc, 3)}
+            subtitle="System Capacity"
+            icon={Shield}
+            color="purple"
+            info="Standard of Change: Maximum rate system can absorb"
           />
           <MetricCard
-            title="W_acc (DPP)"
+            title="W_acc"
             value={fmt(currentMetrics.W_acc, 3)}
-            subtitle={currentMetrics.W_acc >= 0 ? 'Acceptance' : 'Resistance'}
-            icon={GitBranch}
-            color={currentMetrics.W_acc >= 0 ? 'green' : 'red'}
-            info="Dual Pull: (T+P+C) - (R+S)"
+            subtitle="Target ≈ 1.0"
+            icon={Scale}
+            color={currentMetrics.W_acc < 0 ? 'red' : currentMetrics.W_acc > 1.5 ? 'yellow' : 'green'}
+            info="Dual Pull Balance: (T+P+C) - (R+S)"
           />
           <MetricCard
-            title="Time / Phase"
+            title="TPC Mod"
+            value={fmt(currentMetrics.tpcModifier, 3)}
+            subtitle="Efficiency"
+            icon={Layers}
+            color="slate"
+            info="Time-Personal-Culture modifier on WSI"
+          />
+          <MetricCard
+            title="Time"
             value={time}
-            subtitle={phase ? INTERVENTION_PHASES[phase]?.name : 'No intervention'}
+            subtitle={`/ ${maxTime}`}
             icon={Clock}
             color="slate"
           />
         </div>
 
-        {/* Zone Indicator */}
-        <ZoneIndicator theta={currentMetrics.theta} />
-
         {/* Statistics Panel */}
         {showStatistics && stats && (
           <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Statistical Summary</h2>
-            <div className="grid md:grid-cols-4 gap-4">
-              <div className="p-4 bg-slate-50 rounded-xl">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Simulation Statistics
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-slate-50 rounded-xl text-center">
                 <p className="text-xs text-slate-500 mb-1">Mean Θ</p>
                 <p className="text-2xl font-bold text-slate-800">{stats.meanTheta}</p>
               </div>
-              <div className="p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-1">Peak Θ</p>
-                <p className="text-2xl font-bold text-slate-800">{stats.maxTheta}</p>
+              <div className="p-4 bg-red-50 rounded-xl text-center">
+                <p className="text-xs text-slate-500 mb-1">Time in Crisis (Θ&gt;1)</p>
+                <p className="text-2xl font-bold text-red-600">{stats.timeInCrisis}</p>
               </div>
-              <div className="p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-1">Time in Crisis</p>
-                <p className="text-2xl font-bold text-slate-800">{stats.timeInCrisis} periods</p>
+              <div className="p-4 bg-yellow-50 rounded-xl text-center">
+                <p className="text-xs text-slate-500 mb-1">Time Stagnant (Θ&lt;0.5)</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.timeInStagnation}</p>
               </div>
-              <div className="p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-1">Trust Δ</p>
-                <p className={`text-2xl font-bold ${parseFloat(stats.trustChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {stats.trustChange}%
-                </p>
+              <div className="p-4 bg-blue-50 rounded-xl text-center">
+                <p className="text-xs text-slate-500 mb-1">Interventions</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.interventions}</p>
               </div>
             </div>
           </div>
@@ -1120,7 +1292,7 @@ const CrisisAnalyzer = () => {
           <div className="pt-6 border-t border-slate-200">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
               <Target className="w-5 h-5 text-blue-500" />
-              SGT Policy Pathway
+              SGT Policy Pathway (Constructive Succession)
             </h3>
             <div className="grid md:grid-cols-3 gap-4">
               <InterventionButton
@@ -1169,10 +1341,13 @@ const CrisisAnalyzer = () => {
               <LineChart data={history}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="time" />
-                <YAxis domain={[0, 1.5]} />
+                <YAxis domain={[0, 2]} />
                 <Tooltip formatter={(value) => fmt(value, 3)} />
                 <Legend />
-                <ReferenceLine y={1.0} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'Crisis Θ=1', fill: '#ef4444', fontSize: 12 }} />
+                {/* Equilibrium zone band */}
+                <ReferenceLine y={1.0} stroke="#22c55e" strokeWidth={2} label={{ value: 'Equilibrium Θ=1', fill: '#22c55e', fontSize: 12 }} />
+                <ReferenceLine y={0.7} stroke="#eab308" strokeDasharray="5 5" />
+                <ReferenceLine y={1.3} stroke="#eab308" strokeDasharray="5 5" />
                 <Line type="monotone" dataKey="theta" stroke="#ef4444" strokeWidth={2} dot={false} name="Threshold (Θ)" />
                 <Line type="monotone" dataKey="trust" stroke="#3b82f6" strokeWidth={2} dot={false} name="Trust" />
                 <Line type="monotone" dataKey="wealth" stroke="#10b981" strokeWidth={2} dot={false} name="Wealth" />
@@ -1197,11 +1372,12 @@ const CrisisAnalyzer = () => {
                 <YAxis domain={[-1, 2]} />
                 <Tooltip formatter={(value) => fmt(value, 3)} />
                 <Legend />
-                <ReferenceLine y={1.0} stroke="#94a3b8" strokeDasharray="3 3" />
-                <ReferenceLine y={0} stroke="#f97316" strokeDasharray="3 3" />
+                <ReferenceLine y={1.0} stroke="#22c55e" strokeDasharray="3 3" label={{ value: 'Target W_acc=1', fill: '#22c55e', fontSize: 10 }} />
+                <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="3 3" label={{ value: 'SIP Trap', fill: '#ef4444', fontSize: 10 }} />
                 <Line type="monotone" dataKey="tpcModifier" stroke="#8b5cf6" strokeWidth={3} dot={false} name="TPC Modifier" />
                 <Line type="monotone" dataKey="W_acc" stroke="#f59e0b" strokeWidth={2} dot={false} name="W_acc (DPP)" />
                 <Line type="monotone" dataKey="P" stroke="#10b981" strokeWidth={2} dot={false} name="Agency (P)" />
+                <Line type="monotone" dataKey="sipMultiplier" stroke="#ef4444" strokeWidth={2} dot={false} name="SIP φ(W_acc)" />
               </LineChart>
             )}
           </ResponsiveContainer>
@@ -1227,7 +1403,7 @@ const CrisisAnalyzer = () => {
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
           <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
             <GitBranch className="w-5 h-5" />
-            Equilibrium Analysis
+            Equilibrium Analysis: Nash vs SGT
           </h2>
           <EquilibriumComparison stats={stats} currentPhase={phase} />
         </div>
@@ -1238,32 +1414,154 @@ const CrisisAnalyzer = () => {
           <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200">
             <h3 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">
               <Lightbulb className="w-5 h-5" />
-              Key Insights
+              Elastic Middle Insights
             </h3>
             <ul className="space-y-2 text-sm text-indigo-800">
               <li className="flex items-start gap-2">
-                <span className="text-indigo-500 mt-1">•</span>
-                <span><strong>TPC Integration:</strong> Modifier now affects Θ calculation directly</span>
+                <span className="text-green-500 mt-1">●</span>
+                <span><strong>Equilibrium:</strong> Θ ≈ 1.0 is the target (green zone)</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-indigo-500 mt-1">•</span>
-                <span><strong>Dynamic SOC:</strong> Capacity depends on trust and cultural anchoring</span>
+                <span className="text-red-500 mt-1">●</span>
+                <span><strong>Both extremes fail:</strong> Θ &lt;&lt; 1 (stagnation) and Θ &gt;&gt; 1 (crisis)</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-indigo-500 mt-1">•</span>
-                <span><strong>Sequential Pathway:</strong> Phases must be applied in order</span>
+                <span className="text-yellow-500 mt-1">●</span>
+                <span><strong>SIP Trap:</strong> When Θ &gt; 1 or W_acc &lt; 0, signals invert</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-indigo-500 mt-1">•</span>
-                <span><strong>Nash vs SGT:</strong> Classical theory predicts stalemate; SGT predicts recovery path</span>
+                <span className="text-blue-500 mt-1">●</span>
+                <span><strong>Recovery Path:</strong> Circuit Breaker → Structural Floor → Incentive Engine</span>
               </li>
             </ul>
           </div>
         </div>
 
+        {/* Custom Builder (hidden by default) */}
+        {showCustomBuilder && (
+          <div className="bg-white rounded-2xl shadow-xl p-6 border-2 border-purple-300">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-purple-500" />
+              Custom Scenario Builder
+            </h2>
+            
+            {/* WSI Fundamentals */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">WSI Fundamentals</h3>
+              <div className="grid md:grid-cols-3 gap-4">
+                {[
+                  { key: 'wealth', label: 'Wealth' },
+                  { key: 'trust', label: 'Social Trust' },
+                  { key: 'education', label: 'Education' },
+                  { key: 'civilization', label: 'Civilization' },
+                  { key: 'politicalPower', label: 'Political Power' },
+                  { key: 'religion', label: 'Religion' }
+                ].map(param => (
+                  <div key={param.key} className="p-3 bg-slate-50 rounded-lg">
+                    <label className="flex items-center justify-between text-sm font-medium text-slate-700 mb-2">
+                      <span>{param.label}</span>
+                      <span className="font-mono text-xs bg-white px-2 py-1 rounded">{(state[param.key] * 100).toFixed(0)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="1.0"
+                      step="0.01"
+                      value={state[param.key]}
+                      onChange={(e) => setState({ ...state, [param.key]: parseFloat(e.target.value) })}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* TPC + R/S */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Constructive Pull (TPC)</h3>
+                <div className="space-y-3">
+                  {[
+                    { key: 'T', label: 'Time-Sense (T)' },
+                    { key: 'P', label: 'Personal-Sense (P)' },
+                    { key: 'C', label: 'Cultural Anchoring (C)' }
+                  ].map(param => (
+                    <div key={param.key} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      <label className="flex items-center justify-between text-sm font-medium text-green-800 mb-1">
+                        <span>{param.label}</span>
+                        <span className="font-mono text-xs bg-white px-2 py-1 rounded">{(state[param.key] * 100).toFixed(0)}%</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="1.0"
+                        step="0.01"
+                        value={state[param.key]}
+                        onChange={(e) => setState({ ...state, [param.key]: parseFloat(e.target.value) })}
+                        className="w-full h-2 bg-green-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Resistance (R + S)</h3>
+                <div className="space-y-3">
+                  <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <label className="flex items-center justify-between text-sm font-medium text-orange-800 mb-1">
+                      <span>Rigidity (R)</span>
+                      <span className="font-mono text-xs bg-white px-2 py-1 rounded">{(state.R * 100).toFixed(0)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1.0"
+                      step="0.01"
+                      value={state.R}
+                      onChange={(e) => setState({ ...state, R: parseFloat(e.target.value) })}
+                      className="w-full h-2 bg-orange-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                    />
+                  </div>
+                  <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                    <label className="flex items-center justify-between text-sm font-medium text-red-800 mb-1">
+                      <span>Social Pressure (S)</span>
+                      <span className="font-mono text-xs bg-white px-2 py-1 rounded">{(state.S * 100).toFixed(0)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1.0"
+                      step="0.01"
+                      value={state.S}
+                      onChange={(e) => setState({ ...state, S: parseFloat(e.target.value) })}
+                      className="w-full h-2 bg-red-200 rounded-lg appearance-none cursor-pointer accent-red-600"
+                    />
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <label className="flex items-center justify-between text-sm font-medium text-purple-800 mb-1">
+                      <span>SOC (System Capacity)</span>
+                      <span className="font-mono text-xs bg-white px-2 py-1 rounded">{(state.soc * 100).toFixed(0)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.15"
+                      max="0.95"
+                      step="0.01"
+                      value={state.soc}
+                      onChange={(e) => setState({ ...state, soc: parseFloat(e.target.value) })}
+                      className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="text-center text-xs text-slate-500 py-4">
-          Societrics Game Theory • Multi-Crisis Analysis Framework
+          Societrics Game Theory © MindBrood Initiative • Elastic Middle Equilibrium Framework
         </div>
       </div>
     </div>
