@@ -262,7 +262,7 @@ const INTERVENTION_PHASES = {
 // The Elastic Middle: Green is at CENTER (Θ ≈ 1), both extremes are Red
 // Too LOW (stagnation) is just as bad as too HIGH (crisis)
 
-const getElasticMiddleZone = (theta) => {
+const getElasticMiddleZone = (theta: number) => {
   // Equilibrium at Θ = 1.0 (center of elastic middle)
   const deviation = Math.abs(theta - 1.0);
   
